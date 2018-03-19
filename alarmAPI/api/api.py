@@ -1,6 +1,9 @@
+import ConfigParser
+import argparse
 import json
 
 import MySQLdb
+import os
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -128,7 +131,7 @@ def create_response(json_object, response_code, content_type='applicationapplica
 
 
 def connect_to_database_return_sql_response(sql_request, reading=True):
-    db = MySQLdb.connect("localhost", "root", "746450153", "alarm")
+    db = MySQLdb.connect(dbHost, dbUser, dbPassword, dbName)
 
     # prepare a cursor object using cursor() method
     cursor = db.cursor()
@@ -152,4 +155,23 @@ def connect_to_database_return_sql_response(sql_request, reading=True):
 
 
 if __name__ == '__main__':
-    app.run("0.0.0.0", 15001)  # Open database connection
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config-path', type=str,
+                        default='../utility/config.ini',
+                        help='Set path to config file')
+    args = parser.parse_args()
+    config_path = os.path.abspath('.') + '/' + args.config_path
+    config = ConfigParser.ConfigParser()
+    config.read(config_path)
+    global dbHost
+    dbHost = config.get('API-Section', 'dbIp')
+    global dbName
+    dbName = config.get('API-Section', 'dbName')
+    global dbUser
+    dbUser = config.get('API-Section', 'dbUser')
+    global dbPassword
+    dbPassword = config.get('API-Section', 'dbPassword')
+
+    ip = config.get('API-Section', 'ip')
+    port = config.get('API-Section', 'port')
+    app.run(ip, int(port))  # Open database connection
