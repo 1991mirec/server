@@ -14,11 +14,42 @@ def hello():
     return "Hello World!"
 
 
+@app.route("/getPoiTypeLocation/<type>", methods=['GET'])
+def get_poi_locations(type):
+    sql = (
+        """select Longitude,Latitude from poi where Type=%s""",
+        ([type]))
+    response = connect_to_database_return_sql_response(sql)
+    if response[-1]:
+        position = {}
+        list_of_positions = []
+        for res in response[0]:
+            position['longitude'] = res[0]
+            position['latitude'] = res[1]
+            list_of_positions.append(position)
+        return create_response(json.dumps({'positions': list_of_positions}), 200)
+    else:
+        return create_response(json.dumps({'Error': 'Error retrieving numbers from SQL'}), 500)
+
+
+@app.route("/getNumberLocation/<number>", methods=['GET'])
+def get_number_location(number):
+    number = process_number(number)
+    sql = (
+        """select Position from users where Number=%s""",
+        ([number]))
+    response = connect_to_database_return_sql_response(sql)
+    if response[-1]:
+        return create_response(json.dumps({'position': response[0]}), 200)
+    else:
+        return create_response(json.dumps({'Error': 'Error retrieving numbers from SQL'}), 500)
+
+
 @app.route("/myRequests/<number>", methods=['GET'])
 def check_database_for_user_access(number):
     number = process_number(number)
     sql = (
-    """select number from users where ID IN (select Access_with from userAccess where user IN (select ID from users where number=%s))""",
+    """select number from users where ID IN (select Access_with from userAccess where user IN (select ID from users where Number=%s))""",
     ([number]))
     response = connect_to_database_return_sql_response(sql)
     if response[-1]:
@@ -34,7 +65,7 @@ def check_database_for_user_access(number):
 def check_database_for_pending_requests(number):
     number= process_number(number)
     sql = (
-        """select Name, Number from users where ID IN (select user from userAccessPending where Access_with IN (select ID from users where number=%s))""",
+        """select Name, Number from users where ID IN (select user from userAccessPending where Access_with IN (select ID from users where Number=%s))""",
         ([number]))
     response = connect_to_database_return_sql_response(sql)
     if response[-1]:
@@ -76,10 +107,10 @@ def grant_permission():
     my_umber = process_number(json_data.get('my-number'))
     sql = ("""DELETE from userAccessPending WHERE user IN (SELECT ID FROM users where number=%s)""", ([number]))
     response = connect_to_database_return_sql_response(sql, False)
-    sql = ("""INSERT INTO userAccess (user , Access_with) values ((SELECT ID from users where number=%s), (SELECT ID from users where number=%s))""", (number, my_umber))
+    sql = ("""INSERT INTO userAccess (user , Access_with) values ((SELECT ID from users where Number=%s), (SELECT ID from users where Number=%s))""", (number, my_umber))
     response = connect_to_database_return_sql_response(sql, False)
     sql = (
-    """INSERT INTO userAccess (user , Access_with) values ((SELECT ID from users where number=%s), (SELECT ID from users where number=%s))""",
+    """INSERT INTO userAccess (user , Access_with) values ((SELECT ID from users where Number=%s), (SELECT ID from users where Number=%s))""",
     (my_umber, number))
     response = connect_to_database_return_sql_response(sql, False)
     return create_response(json.dumps({'info': 'success'}), 200)
@@ -120,7 +151,7 @@ def process_number(number):
         return 'Wrong string'
 
 
-def create_response(json_object, response_code, content_type='applicationapplication/json',
+def create_response(json_object, response_code, content_type='application/json',
                     accept_type='application/json'):
     headers = {}
     if content_type:
