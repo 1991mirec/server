@@ -96,6 +96,7 @@ def check_database_for_pending_requests(number):
     else:
         return create_response(json.dumps({'Error': 'Error retrieving numbers from SQL'}), 500)
 
+
 @app.route("/createUser", methods=['POST'])
 def add_user():
     json_data = request.json.get('input')
@@ -104,9 +105,14 @@ def add_user():
         return create_response(json.dumps({'Error': 'Wrong string'}), 500)
     name = json_data.get('name')
     position = json_data.get('location')
-
-    sql = ("""INSERT INTO users (Name, Number, Position) VALUES (%s, %s, %s)""", (name, number, position))
-    response = connect_to_database_return_sql_response(sql, False)
+    sql = ("""SELECT * from users WHERE number=%s""", ([number]))
+    response = connect_to_database_return_sql_response(sql)
+    if len(response[0]) == 0:
+        sql = ("""INSERT INTO users (Name, Number, Position) VALUES (%s, %s, %s)""", (name, number, position))
+        response = connect_to_database_return_sql_response(sql, False)
+    else:
+        sql = ("""update users set Name=%s, Position=%s where Number=%s""", (name, position, number))
+        response = connect_to_database_return_sql_response(sql, False)
     if response[-1]:
         return create_response(json.dumps({'info': 'success'}), 201)
     elif 'IntegrityError' in response[0][0]:
@@ -132,24 +138,36 @@ def grant_permission():
     return create_response(json.dumps({'info': 'success'}), 200)
 
 
-@app.route("/numberHasInstalled/<number>", methods=['GET'])
-def get_number_user_has_app_installed_from_sql(number):
+@app.route("/numberHasInstalled/<number>/<number1>", methods=['GET'])
+def get_number_user_has_app_installed_from_sql(number, number1):
     """
     This function checks if user with given phone number <number>
     has application already installed.
-    :param number: User phone number
+    :param number1: User phone number that is asking for location sharing
+    :param number: User phone number that is asked for location sharing
     :return: 200 response with Success true if user has application
     installed or 404 reponse with success false if user does not have application
     installed
     """
+    number1 = process_number(number1)
     number = process_number(number)
     sql = ("""SELECT * FROM users WHERE Number=%s""", ([number]))
     result = connect_to_database_return_sql_response(sql)
     if not result[-1]:
         return result
     if len(result[0]) > 0:
+        sql = ("""INSERT INTO users (Name, Number, Position) VALUES (%s, %s, %s)""", ("unknown", number, "unknown"))
+        response = connect_to_database_return_sql_response(sql, False)
+        sql = (
+        """INSERT INTO userAccessPending (user , Access_with) values ((SELECT ID from users where Number=%s), (SELECT ID from users where Number=%s))""",
+        (number1, number))
+        result = connect_to_database_return_sql_response(sql, False)
         return create_response(json.dumps({'success': 'true'}), 200)
     else:
+        sql = (
+        """INSERT INTO userAccessPending (user , Access_with) values ((SELECT ID from users where Number=%s), (SELECT ID from users where Number=%s))""",
+        (number1, number))
+        result = connect_to_database_return_sql_response(sql, False)
         return create_response(json.dumps({'success': 'false'}), 404)
 
     # disconnect from server
