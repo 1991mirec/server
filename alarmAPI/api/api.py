@@ -14,6 +14,22 @@ def hello():
     return "Hello World!"
 
 
+@app.route("/setNumberLocation", methods=['PUT'])
+def set_number_location():
+    json_data = request.json.get('input')
+    number = process_number(json_data.get('number'))
+    if number == 'Wrong string':
+        return create_response(json.dumps({'Error': 'Wrong string'}), 500)
+    position = json_data.get('location')
+    sql = (
+        """update users set Position=%s where Number=%s""",(position, number))
+    response = connect_to_database_return_sql_response(sql, False)
+    if response[-1]:
+        return create_response(json.dumps({'info': 'Data updated'}), 200)
+    else:
+        return create_response(json.dumps({'Error': 'Error retrieving numbers from SQL'}), 500)
+
+
 @app.route("/getPoiTypeLocation/<type>", methods=['GET'])
 def get_poi_locations(type):
     sql = (
@@ -21,9 +37,9 @@ def get_poi_locations(type):
         ([type]))
     response = connect_to_database_return_sql_response(sql)
     if response[-1]:
-        position = {}
         list_of_positions = []
         for res in response[0]:
+            position = {}
             position['longitude'] = res[0]
             position['latitude'] = res[1]
             list_of_positions.append(position)
@@ -105,7 +121,7 @@ def grant_permission():
     json_data = request.json.get('input')
     number = process_number(json_data.get('number'))
     my_umber = process_number(json_data.get('my-number'))
-    sql = ("""DELETE from userAccessPending WHERE user IN (SELECT ID FROM users where number=%s)""", ([number]))
+    sql = ("""DELETE from userAccessPending WHERE user IN (SELECT ID FROM users where Number=%s)""", ([number]))
     response = connect_to_database_return_sql_response(sql, False)
     sql = ("""INSERT INTO userAccess (user , Access_with) values ((SELECT ID from users where Number=%s), (SELECT ID from users where Number=%s))""", (number, my_umber))
     response = connect_to_database_return_sql_response(sql, False)
